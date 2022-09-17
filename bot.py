@@ -3,7 +3,7 @@ from discord.ext import commands
 import os
 from dotenv import load_dotenv
 import showdown
-from threading import Thread
+import ast
 
 class ReplayClient(showdown.Client):
     
@@ -20,7 +20,8 @@ class ReplayClient(showdown.Client):
         battle,
         channel,
         message,
-        pre_str
+        pre_str,
+        detailed
     ):
         super().__init__(name=name, 
                          password=password,
@@ -33,34 +34,34 @@ class ReplayClient(showdown.Client):
         self.channel = channel
         self.message = message
         self.pre_str = pre_str
+        self.detailed = detailed
     
     
     async def on_receive(self, room_id, inp_type, params):
         if inp_type == 'win':
-            # print("ended")
+            print("ended")
             await self.save_replay(room_id)
     
     async def on_query_response(self, query_type, response):
         if(query_type == "savereplay"):
-            # print("responded")
+            print("responded")
             id = response['id']
-            await replayer_finished(self.pre_str + id, self.channel, self.message)
+            if not self.detailed:
+                await replayer_finished_simple(self.pre_str + id, self.message)
+            else:
+                await replayer_finished_detailed(self.pre_str + id, self.channel, response['log'])
     
     async def on_connect(self):
-        # print("connected")
+        print("connected")
         await self.join(self.battle)
     
-def other():
-    load_dotenv()
-    showdown_user = os.getenv("SHOWDOWN_USER")
-    showdown_pass = os.getenv("SHOWDOWN_PASS")
-    ReplayClient(name=showdown_user, password=showdown_pass,
-                 battle="battle-gen8randombattle-1666722038", channel=None).start(autologin=False)       
 
 def main():
     load_dotenv()
     botID = int(os.getenv("BOT_ID"))
     channelIDs = [int(a) for a in os.getenv("CHANNEL_IDS").split(" ")]
+    draft_dict=ast.literal_eval(os.getenv("DRAFT_LINKS_IDS"))
+    print(draft_dict)
     showdown_user = os.getenv("SHOWDOWN_USER")
     showdown_pass = os.getenv("SHOWDOWN_PASS")
     token = os.getenv("DISCORD_TOKEN")
@@ -80,25 +81,59 @@ def main():
         ch = message.channel
         if message.author.id == botID or ch.id not in channelIDs:
             return
+        detailed = False
+        final_channel = ch
+        if ch.id in draft_dict.keys():
+            final_channel = client.get_channel(draft_dict[ch.id])
+            detailed = True
+        
         content = message.content
         if "play.pokemonshowdown.com" in content:
             battle_id = content[content.index("battle-"):]
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
-                                   channel=ch, message=message, pre_str="https://replay.pokemonshowdown.com/")
+                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", detailed=detailed)
             client2.start(autologin=False)
         elif "sports.psim.us" in content:
             battle_id = content[content.index("battle-"):]
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
-                        channel=ch, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports")
+                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", detailed=detailed)
             client2.start(autologin=False)
+        
+        
             
 
 
     client.run(token)
 
-async def replayer_finished(replay_link, ch, msg):
+async def replayer_finished_simple(replay_link, msg):
     # print("Replay at "+replay_link)
-    await msg.reply("Replay at " + replay_link, mention_author=False)
+    print("simple")
+    await msg.reply("Replay: " + replay_link, mention_author=False)
+    
+async def replayer_finished_detailed(replay_link, channel, log):
+    print("detailed")
+    log_lines = log.splitlines()
+    print(log_lines)
+    user1 = log_lines[0][4:].lower()
+    user2 = log_lines[1][4:].lower()
+    winner = log_lines[len(log_lines)-1][5:].lower()
+    
+    alive1 = 6
+    alive2 = 6
+    
+    for line in log_lines:
+        if "|faint|p1a" in line:
+            alive1-=1
+        if "|faint|p2a" in line:
+            alive2-=1
+    
+    if(winner==user1):
+        final_str = f"Botfficial Match Result:\n{user1} def. {user2} {alive1}-{alive2}\n{replay_link}"
+    elif(winner==user2):
+        final_str = f"Botfficial Match Result:\n{user2} def. {user1} {alive2}-{alive1}\n{replay_link}"
+    else:
+        final_str = f"ERROR - winner was {winner} but could not be identified as a player"
+    await channel.send(final_str)
 
 if __name__ == "__main__":
     main()
