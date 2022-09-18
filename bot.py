@@ -63,7 +63,7 @@ class ReplayClient(showdown.Client):
 def main():
     load_dotenv()
     botID = int(os.getenv("BOT_ID"))
-    gc = pygsheets.authorize(service_account_file="gsheets-key.json")
+    gc = pygsheets.authorize(service_account_env_var="G_JSON")
     si = 11
     sheets = {"Mackey": gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheets()[si:], "Ross-Ade": gc.open_by_url(os.getenv("ROSSADE_SHEET")).worksheets()[si:], "Holloway": gc.open_by_url(os.getenv("HOLLOWAY_SHEET")).worksheets()[si:]}
     channelIDs = [int(a) for a in os.getenv("CHANNEL_IDS").split(" ")]
