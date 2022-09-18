@@ -62,11 +62,11 @@ class ReplayClient(showdown.Client):
 
 def main():
     load_dotenv()
-    botID = int(os.getenv("BOT_ID"))
+    botID = (os.getenv("BOT_ID"))
     gc = pygsheets.authorize(service_account_env_var="G_JSON")
     si = 11
     sheets = {"Mackey": gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheets()[si:], "Ross-Ade": gc.open_by_url(os.getenv("ROSSADE_SHEET")).worksheets()[si:], "Holloway": gc.open_by_url(os.getenv("HOLLOWAY_SHEET")).worksheets()[si:]}
-    channelIDs = [int(a) for a in os.getenv("CHANNEL_IDS").split(" ")]
+    channelIDs = [a for a in os.getenv("CHANNEL_IDS").split(" ")]
     draft_dict=ast.literal_eval(os.getenv("DRAFT_LINKS_IDS"))
     showdown_user = os.getenv("SHOWDOWN_USER")
     showdown_pass = os.getenv("SHOWDOWN_PASS")
@@ -100,7 +100,7 @@ def main():
             
             return
         
-        if message.author.id == botID or ch.id not in channelIDs:
+        if str(message.author.id) == botID or str(ch.id) not in channelIDs:
             return
         
         detailed = False
