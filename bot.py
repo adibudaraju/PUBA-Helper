@@ -130,12 +130,12 @@ def main():
         elif ch.id in bracket_dict.keys():
             final_channel = client.get_channel(bracket_dict[ch.id])
         
-        if "play.pokemonshowdown.com" in content:
+        if "play.pokemonshowdown.com" in content.lower() and "replay." not in content.lower():
             battle_id = content[content.index("battle-"):]
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
             client2.start()
-        elif "sports.psim.us" in content:
+        elif "sports.psim.us" in content.lower():
             battle_id = content[content.index("battle-"):]
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", draft=draft, sheets=sheets)
