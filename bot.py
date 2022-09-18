@@ -195,10 +195,10 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
         
         if index1 == -1:
             if index2 == -1:
-                team1 = "Showdown User " + user1
                 team2 = "Showdown User " + user2
             else:
                 team2 = teams[index2]
+            team1 = "Showdown User" + user1
         elif index2 == -1:
             team2 = "Showdown User " + user2
             team1 = teams[index1]
@@ -244,17 +244,17 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
         if index1>=0 and index2>=0:
             break
     
+    division = "Unknown Division"
+    
     if index1 == -1:
         if index2 == -1:
-            team1 = "Showdown User " + user1
             team2 = "Showdown User " + user2
         else:
             team2 = teams[index2]
-        division = "Unknown Division"
+        team1 = "Showdown User" + user1
     elif index2 == -1:
         team2 = "Showdown User " + user2
         team1 = teams[index1]
-        division = "Unknown Division"
     else:
         team1 = teams[index1]
         team2 = teams[index2]
@@ -275,7 +275,7 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
             if found1 and found2:
                 division = div
                 break
-    
+                
     if(winner==user1):
         final_str = f"Botfficial Match Result ({division})\n{team1} def. {team2} {alive1}-{alive2}\n{replay_link}"
     elif(winner==user2):
