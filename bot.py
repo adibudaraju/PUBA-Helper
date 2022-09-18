@@ -43,12 +43,12 @@ class ReplayClient(showdown.Client):
     
     async def on_receive(self, room_id, inp_type, params):
         if inp_type == 'win':
-            print("ended")
+            # print("ended")
             await self.save_replay(room_id)
     
     async def on_query_response(self, query_type, response):
         if(query_type == "savereplay"):
-            print("responded")
+            # print("responded")
             id = response['id']
             if not self.detailed:
                 await replayer_finished_simple(self.pre_str + id, self.message)
@@ -56,7 +56,7 @@ class ReplayClient(showdown.Client):
                 await replayer_finished_detailed(self.pre_str + id, self.channel, response['log'], self.sheets)
     
     async def on_connect(self):
-        print("connected")
+        # print("connected")
         await self.join(self.battle)
     
 
