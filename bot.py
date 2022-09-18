@@ -1,3 +1,4 @@
+from typing import final
 import discord
 from discord.ext import commands
 import os
@@ -6,6 +7,8 @@ import showdown
 from threading import Thread
 import ast
 import pygsheets
+
+bo3s = []
 
 class ReplayClient(showdown.Client):
     
@@ -23,7 +26,7 @@ class ReplayClient(showdown.Client):
         channel,
         message,
         pre_str,
-        detailed,
+        draft,
         sheets
     ):
         super().__init__(name=name, 
@@ -37,7 +40,7 @@ class ReplayClient(showdown.Client):
         self.channel = channel
         self.message = message
         self.pre_str = pre_str
-        self.detailed = detailed
+        self.draft = draft
         self.sheets=sheets
     
     
@@ -50,10 +53,10 @@ class ReplayClient(showdown.Client):
         if(query_type == "savereplay"):
             # print("responded")
             id = response['id']
-            if not self.detailed:
-                await replayer_finished_simple(self.pre_str + id, self.message)
+            if not self.draft:
+                await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
             else:
-                await replayer_finished_detailed(self.pre_str + id, self.channel, response['log'], self.sheets)
+                await replayer_finished_draft(self.pre_str + id, self.channel, response['log'], self.sheets)
     
     async def on_connect(self):
         # print("connected")
@@ -68,6 +71,7 @@ def main():
     sheets = {"Mackey": gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheets()[si:], "Ross-Ade": gc.open_by_url(os.getenv("ROSSADE_SHEET")).worksheets()[si:], "Holloway": gc.open_by_url(os.getenv("HOLLOWAY_SHEET")).worksheets()[si:]}
     channelIDs = [a for a in os.getenv("CHANNEL_IDS").split(" ")]
     draft_dict=ast.literal_eval(os.getenv("DRAFT_LINKS_IDS"))
+    bracket_dict=ast.literal_eval(os.getenv("BRACKET_LINKS_IDS"))
     showdown_user = os.getenv("SHOWDOWN_USER")
     showdown_pass = os.getenv("SHOWDOWN_PASS")
     token = os.getenv("DISCORD_TOKEN")
@@ -103,31 +107,103 @@ def main():
         if str(message.author.id) == botID or str(ch.id) not in channelIDs:
             return
         
-        detailed = False
+        draft = False
         final_channel = ch
         if ch.id in draft_dict.keys():
             final_channel = client.get_channel(draft_dict[ch.id])
-            detailed = True
+            draft = True
         
+        elif ch.id in bracket_dict.keys():
+            final_channel = client.get_channel(bracket_dict[ch.id])
         
         if "play.pokemonshowdown.com" in content:
             battle_id = content[content.index("battle-"):]
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
-                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", detailed=detailed, sheets=sheets)
-            client2.start(autologin=False)
+                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
+            client2.start()
         elif "sports.psim.us" in content:
             battle_id = content[content.index("battle-"):]
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
-                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", detailed=detailed, sheets=sheets)
-            client2.start(autologin=False)
+                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", draft=draft, sheets=sheets)
+            client2.start()
         
     client.run(token)
 
-async def replayer_finished_simple(replay_link, msg):
-    # print("Replay at "+replay_link)
-    await msg.reply("Replay: " + replay_link, mention_author=False)
+async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
+    won = False
+    score = 0
+    log_lines = log.splitlines()
+    # print(log_lines)
+    user1 = log_lines[0][4:].lower()
+    user2 = log_lines[1][4:].lower()
+    if user1 > user2:
+        temp = user1
+        user1 = user2
+        user2 = temp
+    winner = log_lines[len(log_lines)-1][5:].lower()
+    if winner == user1:
+        score = 1
+    elif winner == user2:
+        score = -1
+    else:
+        await msg.channel.send("Could not find users for match, though replay is at\n" + replay_link)
+        return
+    if (user1, user2) in [(t[0], t[1]) for t in bo3s]:
+        for t in bo3s:
+            if t[0]==user1 and t[1]==user2:
+                t[2].append(replay_link)
+                t[3] += score
+                if abs(t[3])*len(t[2])>=3:
+                    won=True
+                    final_score = f"2-{len(t[2])-2}"
+                    replays_string = ""
+                    for replay in t[2]:
+                        replays_string+=f'\n{replay}'
+                    bo3s.remove(t)
+                break
+    else:
+        bo3s.append([user1, user2, [replay_link], score])
+        
+    if won:
     
-async def replayer_finished_detailed(replay_link, channel, log, sheets):
+        # found = False
+        
+        # for div in sheets.keys():
+        #     for w in sheets[div]:
+        #         if w.rows > 5 and w.cols > 5 and user1 in str(w.cell('E4').value_unformatted).lower():
+        #             team1 = str(w.cell('E1').value_unformatted)
+        #             found = True
+        #             break
+        #     if found:
+        #         break
+        
+        # if not found:
+        #     team1 = "Showdown User " + user1
+        
+        # found = False
+         
+        # for div in sheets.keys():   
+        #     for w in sheets[div]:
+        #         if w.rows > 5 and w.cols > 5 and user2 in str(w.cell('E4').value_unformatted).lower():
+        #             team2 = str(w.cell('E1').value_unformatted)
+        #             found = True
+        #             break
+        #         if found:
+        #             break
+        #     if not found:
+        #         team2 = "Showdown User " + user1
+        
+        
+        
+        if score > 0:
+            final_str = f"Botfficial Bracket Result\n{user1} def. {user2} {final_score}{replays_string}"
+        else:
+            final_str = f"Botfficial Bracket Result\n{user2} def. {user1} {final_score}{replays_string}"
+        await channel.send(final_str)
+
+        
+    
+async def replayer_finished_draft(replay_link, channel, log, sheets):
     log_lines = log.splitlines()
     # print(log_lines)
     user1 = log_lines[0][4:].lower()
