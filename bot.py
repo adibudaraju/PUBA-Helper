@@ -9,6 +9,10 @@ import ast
 import pygsheets
 
 bo3s = []
+tr = None
+users = None
+teams = None
+abbvs = None
 
 class ReplayClient(showdown.Client):
     
@@ -27,7 +31,7 @@ class ReplayClient(showdown.Client):
         message,
         pre_str,
         draft,
-        sheets
+        sheets,
     ):
         super().__init__(name=name, 
                          password=password,
@@ -64,11 +68,21 @@ class ReplayClient(showdown.Client):
     
 
 def main():
+    global users
+    global teams
+    global abbvs
+    global tr
     load_dotenv()
     botID = (os.getenv("BOT_ID"))
     gc = pygsheets.authorize(service_account_env_var="G_JSON")
     si = 11
     sheets = {"Mackey": gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheets()[si:], "Ross-Ade": gc.open_by_url(os.getenv("ROSSADE_SHEET")).worksheets()[si:], "Holloway": gc.open_by_url(os.getenv("HOLLOWAY_SHEET")).worksheets()[si:]}
+    tr = gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheet_by_title('Team Reference')
+    users = tr.get_col(7)
+    teams = tr.get_col(2)
+    abbvs = tr.get_col(8)
+    users = [u.lower().strip() for u in users]
+    abbvs = [a.lower().strip() for a in abbvs]
     channelIDs = [a for a in os.getenv("CHANNEL_IDS").split(" ")]
     draft_dict=ast.literal_eval(os.getenv("DRAFT_LINKS_IDS"))
     bracket_dict=ast.literal_eval(os.getenv("BRACKET_LINKS_IDS"))
@@ -130,6 +144,7 @@ def main():
     client.run(token)
 
 async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
+    global bo3s
     won = False
     score = 0
     log_lines = log.splitlines()
@@ -165,40 +180,36 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
         bo3s.append([user1, user2, [replay_link], score])
         
     if won:
-    
-        # found = False
         
-        # for div in sheets.keys():
-        #     for w in sheets[div]:
-        #         if w.rows > 5 and w.cols > 5 and user1 in str(w.cell('E4').value_unformatted).lower():
-        #             team1 = str(w.cell('E1').value_unformatted)
-        #             found = True
-        #             break
-        #     if found:
-        #         break
+        team1 = ""
+        team2 = ""
+        index1 = -1
+        index2 = -1
+        for i in range(len(users)):
+            if users[i] == user1:
+                index1 = i
+            elif users[i] == user2:
+                index2 = i
+            if index1>=0 and index2>=0:
+                break
         
-        # if not found:
-        #     team1 = "Showdown User " + user1
-        
-        # found = False
-         
-        # for div in sheets.keys():   
-        #     for w in sheets[div]:
-        #         if w.rows > 5 and w.cols > 5 and user2 in str(w.cell('E4').value_unformatted).lower():
-        #             team2 = str(w.cell('E1').value_unformatted)
-        #             found = True
-        #             break
-        #         if found:
-        #             break
-        #     if not found:
-        #         team2 = "Showdown User " + user1
-        
-        
+        if index1 == -1:
+            if index2 == -1:
+                team1 = "Showdown User " + user1
+                team2 = "Showdown User " + user2
+            else:
+                team2 = teams[index2]
+        elif index2 == -1:
+            team2 = "Showdown User " + user2
+            team1 = teams[index1]
+        else:
+            team1 = teams[index1]
+            team2 = teams[index2]
         
         if score > 0:
-            final_str = f"Botfficial Bracket Result\n{user1} def. {user2} {final_score}{replays_string}"
+            final_str = f"Botfficial Bracket Result\n{team1} def. {team2} {final_score}{replays_string}"
         else:
-            final_str = f"Botfficial Bracket Result\n{user2} def. {user1} {final_score}{replays_string}"
+            final_str = f"Botfficial Bracket Result\n{team2} def. {team1} {final_score}{replays_string}"
         await channel.send(final_str)
 
         
@@ -206,9 +217,11 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
 async def replayer_finished_draft(replay_link, channel, log, sheets):
     log_lines = log.splitlines()
     # print(log_lines)
-    user1 = log_lines[0][4:].lower()
-    user2 = log_lines[1][4:].lower()
-    winner = log_lines[len(log_lines)-1][5:].lower()
+    user1 = log_lines[0][4:].lower().strip()
+    user2 = log_lines[1][4:].lower().strip()
+    winner = log_lines[len(log_lines)-1][5:].lower().strip()
+    index1 = -1
+    index2 = -1
     
     alive1 = 6
     alive2 = 6
@@ -222,33 +235,46 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
     team1 = ""
     team2 = ""
     division = ""
-    found = False
-    for div in sheets.keys():
-        for w in sheets[div]:
-            if w.rows > 5 and w.cols > 5 and user1 in str(w.cell('E4').value_unformatted).lower():
-                team1 = str(w.cell('E1').value_unformatted)
-                division = div
-                found = True
-                break
-        if found:
+    
+    for i in range(len(users)):
+        if users[i] == user1:
+            index1 = i
+        elif users[i] == user2:
+            index2 = i
+        if index1>=0 and index2>=0:
             break
     
-    if not found:
-        team1 = "Showdown User " + user1
-        team2 = "Showdown User " + user2
-        division = "Unidentified Division"
-    else:
-        found2 = False
-        
-        for w in sheets[division]:
-            if w.rows > 5 and w.cols > 5 and user2 in str(w.cell('E4').value_unformatted).lower():
-                team2 = str(w.cell('E1').value_unformatted)
-                found2 = True
-                break
-        if not found2:
+    if index1 == -1:
+        if index2 == -1:
+            team1 = "Showdown User " + user1
             team2 = "Showdown User " + user2
-            division = "Unidentified Division"
-    
+        else:
+            team2 = teams[index2]
+        division = "Unknown Division"
+    elif index2 == -1:
+        team2 = "Showdown User " + user2
+        team1 = teams[index1]
+        division = "Unknown Division"
+    else:
+        team1 = teams[index1]
+        team2 = teams[index2]
+        abbv1 = abbvs[index1]
+        abbv2 = abbvs[index2]
+        found1 = False
+        found2 = False
+        for div in sheets.keys():
+            found1 = False
+            found2 = False
+            for w in sheets[div]:
+                if w.title.lower().strip() == abbv1:
+                    found1 = True
+                if w.title.lower().strip() == abbv2:
+                    found2 = True
+                if found1 and found2:
+                    break
+            if found1 and found2:
+                division = div
+                break
     
     if(winner==user1):
         final_str = f"Botfficial Match Result ({division})\n{team1} def. {team2} {alive1}-{alive2}\n{replay_link}"
@@ -260,3 +286,35 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
 
 if __name__ == "__main__":
     main()
+    
+    
+########  
+#OLD CODE
+########
+
+# for div in sheets.keys():
+    #     for w in sheets[div]:
+    #         if w.rows > 5 and w.cols > 5 and user1 in str(w.cell('E4').value_unformatted).lower():
+    #             team1 = str(w.cell('E1').value_unformatted)
+    #             division = div
+    #             found = True
+    #             break
+    #     if found:
+    #         break
+    
+    # if not found:
+    #     team1 = "Showdown User " + user1
+    #     team2 = "Showdown User " + user2
+    #     division = "Unidentified Division"
+    # else:
+    #     found2 = False
+        
+    #     for w in sheets[division]:
+    #         if w.rows > 5 and w.cols > 5 and user2 in str(w.cell('E4').value_unformatted).lower():
+    #             team2 = str(w.cell('E1').value_unformatted)
+    #             found2 = True
+    #             break
+    #     if not found2:
+    #         team2 = "Showdown User " + user2
+    #         division = "Unidentified Division"
+    
