@@ -7,6 +7,7 @@ import showdown
 from threading import Thread
 import ast
 import pygsheets
+from datetime import datetime, timedelta
 
 bo3s = []
 tr = None
@@ -131,12 +132,21 @@ def main():
             final_channel = client.get_channel(bracket_dict[ch.id])
         
         if "play.pokemonshowdown.com" in content.lower() and "replay." not in content.lower():
-            battle_id = content[content.index("battle-"):]
+            new_cont = content.split(" ")
+            for c in new_cont:
+                if "play.pokemonshowdown.com" in c.lower():
+                    battle_id = c[c.index("battle-"):]
+                    break
+            
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
             client2.start()
         elif "sports.psim.us" in content.lower():
-            battle_id = content[content.index("battle-"):]
+            new_cont = content.split(" ")
+            for c in new_cont:
+                if "sports.psim.us" in c.lower():
+                    battle_id = c[c.index("battle-"):]
+                    break
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", draft=draft, sheets=sheets)
             client2.start()
@@ -165,7 +175,12 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
         return
     if (user1, user2) in [(t[0], t[1]) for t in bo3s]:
         for t in bo3s:
+            if datetime.now() - t[4] > timedelta(days=1):
+                bo3s.remove(t)
+                bo3s.append([user1, user2, [replay_link], score, datetime.now()])
+                break
             if t[0]==user1 and t[1]==user2:
+                print(datetime.now() - t[4])
                 t[2].append(replay_link)
                 t[3] += score
                 if abs(t[3])*len(t[2])>=3:
@@ -177,7 +192,7 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
                     bo3s.remove(t)
                 break
     else:
-        bo3s.append([user1, user2, [replay_link], score])
+        bo3s.append([user1, user2, [replay_link], score, datetime.now()])
         
     if won:
         
