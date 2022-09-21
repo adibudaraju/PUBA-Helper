@@ -62,7 +62,7 @@ class ReplayClient(showdown.Client):
                 await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
             else:
                 await replayer_finished_draft(self.pre_str + id, self.channel, response['log'], self.sheets)
-            await self.leave(id)
+            await self.leave(self.battle)
     async def on_connect(self):
         # print("connected")
         await self.join(self.battle)
