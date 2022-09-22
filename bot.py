@@ -180,7 +180,7 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
                 bo3s.append([user1, user2, [replay_link], score, datetime.now()])
                 break
             if t[0]==user1 and t[1]==user2:
-                print(datetime.now() - t[4])
+                # print(datetime.now() - t[4])
                 t[2].append(replay_link)
                 t[3] += score
                 if abs(t[3])*len(t[2])>=3:
