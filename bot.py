@@ -57,6 +57,7 @@ class ReplayClient(showdown.Client):
     async def on_query_response(self, query_type, response):
         if(query_type == "savereplay"):
             # print("responded")
+            print(response['log'])
             id = response['id']
             if not self.draft:
                 await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
@@ -165,7 +166,11 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
         temp = user1
         user1 = user2
         user2 = temp
-    winner = log_lines[len(log_lines)-1][5:].lower()
+    winner = "unknown"
+    for line in log_lines:
+        line2 = line.lower().strip()
+        if line2.startswith("|win|"):
+            winner = line2[5:].lower()
     if winner == user1:
         score = 1
     elif winner == user2:
@@ -213,7 +218,7 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
                 team2 = "Showdown User " + user2
             else:
                 team2 = teams[index2]
-            team1 = "Showdown User" + user1
+            team1 = "Showdown User " + user1
         elif index2 == -1:
             team2 = "Showdown User " + user2
             team1 = teams[index1]
@@ -234,7 +239,11 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
     # print(log_lines)
     user1 = log_lines[0][4:].lower().strip()
     user2 = log_lines[1][4:].lower().strip()
-    winner = log_lines[len(log_lines)-1][5:].lower().strip()
+    winner = "unknown"
+    for line in log_lines:
+        line2 = line.lower().strip()
+        if line2.startswith("|win|"):
+            winner = line2[5:].lower()
     index1 = -1
     index2 = -1
     
@@ -266,7 +275,7 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
             team2 = "Showdown User " + user2
         else:
             team2 = teams[index2]
-        team1 = "Showdown User" + user1
+        team1 = "Showdown User " + user1
     elif index2 == -1:
         team2 = "Showdown User " + user2
         team1 = teams[index1]
