@@ -15,6 +15,13 @@ users = None
 teams = None
 abbvs = None
 
+def find_nth(haystack, needle, n):
+    start = haystack.find(needle)
+    while start >= 0 and n > 1:
+        start = haystack.find(needle, start+len(needle))
+        n -= 1
+    return start
+
 class ReplayClient(showdown.Client):
     
     def __init__(
@@ -57,15 +64,16 @@ class ReplayClient(showdown.Client):
     async def on_query_response(self, query_type, response):
         if(query_type == "savereplay"):
             # print("responded")
-            print(response['log'])
+            #print(response['log'])
             id = response['id']
             if not self.draft:
                 await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
             else:
                 await replayer_finished_draft(self.pre_str + id, self.channel, response['log'], self.sheets)
             await self.leave(self.battle)
-    async def on_connect(self):
-        # print("connected")
+        
+    async def on_login(self, login_response):
+        await super().on_login(login_response)
         await self.join(self.battle)
     
 
@@ -141,16 +149,16 @@ def main():
             
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
-            client2.start()
+            client2.start(autologin=True)
         elif "sports.psim.us" in content.lower():
             new_cont = content.split(" ")
             for c in new_cont:
                 if "sports.psim.us" in c.lower():
                     battle_id = c[c.index("battle-"):]
-                    break
+                    
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", draft=draft, sheets=sheets)
-            client2.start()
+            client2.start(autologin=True)
         
     client.run(token)
 
