@@ -10,6 +10,7 @@ import pygsheets
 from datetime import datetime, timedelta
 
 bo3s = []
+bo3_tracking = None
 tr = None
 users = None
 teams = None
@@ -82,6 +83,7 @@ def main():
     global teams
     global abbvs
     global tr
+    global bo3_tracking
     load_dotenv()
     botID = (os.getenv("BOT_ID"))
     gc = pygsheets.authorize(service_account_env_var="G_JSON")
@@ -99,6 +101,7 @@ def main():
     showdown_user = os.getenv("SHOWDOWN_USER")
     showdown_pass = os.getenv("SHOWDOWN_PASS")
     token = os.getenv("DISCORD_TOKEN")
+    bo3_tracking = os.getenv("BO3_TRACKING").strip().upper() == "T"
     
     intents = discord.Intents.default()
     intents.message_content = True
@@ -162,7 +165,7 @@ def main():
         
     client.run(token)
 
-async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
+async def bracket_bo3(replay_link, msg, channel, log, sheets):
     global bo3s
     won = False
     score = 0
@@ -235,10 +238,76 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
             team2 = teams[index2]
         
         if score > 0:
-            final_str = f"Botfficial Bracket Result\n{team1} def. {team2} {final_score}{replays_string}"
+            final_str = f"Botfficial Bracket BO3 Result\n{team1} def. {team2} {final_score}{replays_string}"
         else:
-            final_str = f"Botfficial Bracket Result\n{team2} def. {team1} {final_score}{replays_string}"
+            final_str = f"Botfficial Bracket BO3 Result\n{team2} def. {team1} {final_score}{replays_string}"
         await channel.send(final_str)
+
+async def bracket_bo1(replay_link, msg, channel, log, sheets):
+    log_lines = log.splitlines()
+    # print(log_lines)
+    user1 = log_lines[0][4:].lower().strip()
+    user2 = log_lines[1][4:].lower().strip()
+    winner = "unknown"
+    for line in log_lines:
+        line2 = line.lower().strip()
+        if line2.startswith("|win|"):
+            winner = line2[5:].lower()
+    index1 = -1
+    index2 = -1
+    
+    alive1 = 6
+    alive2 = 6
+    
+    for line in log_lines:
+        if "|faint|p1a" in line:
+            alive1-=1
+        if "|faint|p2a" in line:
+            alive2-=1
+    
+    team1 = ""
+    team2 = ""
+    division = ""
+    
+    for i in range(len(users)):
+        if users[i] == user1:
+            index1 = i
+        elif users[i] == user2:
+            index2 = i
+        if index1>=0 and index2>=0:
+            break
+    
+    
+    if index1 == -1:
+        if index2 == -1:
+            team2 = "Showdown User " + user2
+        else:
+            team2 = teams[index2]
+        team1 = "Showdown User " + user1
+    elif index2 == -1:
+        team2 = "Showdown User " + user2
+        team1 = teams[index1]
+    else:
+        team1 = teams[index1]
+        team2 = teams[index2]
+        
+    if(winner==user1):
+        final_str = f"Botfficial Bracket BO1 Result\n{team1} def. {team2} {alive1}-{alive2}\n{replay_link}"
+    elif(winner==user2):
+        final_str = f"Botfficial Bracket BO1 Result\n{team2} def. {team1} {alive2}-{alive1}\n{replay_link}"
+    else:
+        final_str = f"ERROR - winner was {winner} but could not be identified as a player"
+    await channel.send(final_str)
+
+
+
+async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
+    global bo3_tracking
+    if bo3_tracking:
+        await bracket_bo3(replay_link, msg, channel, log, sheets)
+    else:
+        await bracket_bo1(replay_link, msg, channel, log, sheets)
+
 
         
     
