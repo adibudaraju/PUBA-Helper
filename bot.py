@@ -15,6 +15,12 @@ tr = None
 users = None
 teams = None
 abbvs = None
+recents = []
+
+
+
+def showdown_format(in_str):
+    return (''.join(ch for ch in in_str if ch.isalnum())).lower().strip()
 
 def find_nth(haystack, needle, n):
     start = haystack.find(needle)
@@ -63,10 +69,18 @@ class ReplayClient(showdown.Client):
             await self.save_replay(room_id)
     
     async def on_query_response(self, query_type, response):
+        global recents
         if(query_type == "savereplay"):
             # print("responded")
             #print(response['log'])
             id = response['id']
+            if id in recents:
+                return
+            
+            recents.append(id)
+            if len(recents) > 20:
+                recents.pop(0)
+                
             if not self.draft:
                 await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
             else:
@@ -93,7 +107,7 @@ def main():
     users = tr.get_col(7)
     teams = tr.get_col(2)
     abbvs = tr.get_col(8)
-    users = [u.lower().strip() for u in users]
+    users = [showdown_format(u) for u in users]
     abbvs = [a.lower().strip() for a in abbvs]
     channelIDs = [a for a in os.getenv("CHANNEL_IDS").split(" ")]
     draft_dict=ast.literal_eval(os.getenv("DRAFT_LINKS_IDS"))
@@ -161,98 +175,31 @@ def main():
                     
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", draft=draft, sheets=sheets)
-            client2.start(autologin=True)
-        
+            client2.start(autologin=True)        
     client.run(token)
-
-async def bracket_bo3(replay_link, msg, channel, log, sheets):
-    global bo3s
-    won = False
-    score = 0
-    log_lines = log.splitlines()
-    # print(log_lines)
-    user1 = log_lines[0][4:].lower()
-    user2 = log_lines[1][4:].lower()
-    if user1 > user2:
-        temp = user1
-        user1 = user2
-        user2 = temp
+    
+    
+def get_users_winner(log_lines):
+    #print(log_lines)
+   
+    user2 = showdown_format(log_lines[1][4:])
     winner = "unknown"
     for line in log_lines:
         line2 = line.lower().strip()
-        if line2.startswith("|win|"):
-            winner = line2[5:].lower()
-    if winner == user1:
-        score = 1
-    elif winner == user2:
-        score = -1
-    else:
-        await msg.channel.send("Could not find users for match, though replay is at\n" + replay_link)
-        return
-    if (user1, user2) in [(t[0], t[1]) for t in bo3s]:
-        for t in bo3s:
-            if datetime.now() - t[4] > timedelta(days=1):
-                bo3s.remove(t)
-                bo3s.append([user1, user2, [replay_link], score, datetime.now()])
-                break
-            if t[0]==user1 and t[1]==user2:
-                # print(datetime.now() - t[4])
-                t[2].append(replay_link)
-                t[3] += score
-                if abs(t[3])*len(t[2])>=3:
-                    won=True
-                    final_score = f"2-{len(t[2])-2}"
-                    replays_string = ""
-                    for replay in t[2]:
-                        replays_string+=f'\n{replay}'
-                    bo3s.remove(t)
-                break
-    else:
-        bo3s.append([user1, user2, [replay_link], score, datetime.now()])
-        
-    if won:
-        
-        team1 = ""
-        team2 = ""
-        index1 = -1
-        index2 = -1
-        for i in range(len(users)):
-            if users[i] == user1:
-                index1 = i
-            elif users[i] == user2:
-                index2 = i
-            if index1>=0 and index2>=0:
-                break
-        
-        if index1 == -1:
-            if index2 == -1:
-                team2 = "Showdown User " + user2
-            else:
-                team2 = teams[index2]
-            team1 = "Showdown User " + user1
-        elif index2 == -1:
-            team2 = "Showdown User " + user2
-            team1 = teams[index1]
-        else:
-            team1 = teams[index1]
-            team2 = teams[index2]
-        
-        if score > 0:
-            final_str = f"Botfficial Bracket BO3 Result\n{team1} def. {team2} {final_score}{replays_string}"
-        else:
-            final_str = f"Botfficial Bracket BO3 Result\n{team2} def. {team1} {final_score}{replays_string}"
-        await channel.send(final_str)
+        if line2.startswith("|player|p1|"):
+             user1 = showdown_format(line2[11:line2.find("|", 11)])
+        elif line2.startswith("|player|p2|"):
+             user2 = showdown_format(line2[11:line2.find("|", 11)])
+        elif line2.startswith("|win|"):
+            winner = showdown_format(line2[5:])
+    return user1, user2, winner
 
-async def bracket_bo1(replay_link, msg, channel, log, sheets):
-    log_lines = log.splitlines()
-    # print(log_lines)
-    user1 = log_lines[0][4:].lower().strip()
-    user2 = log_lines[1][4:].lower().strip()
-    winner = "unknown"
-    for line in log_lines:
-        line2 = line.lower().strip()
-        if line2.startswith("|win|"):
-            winner = line2[5:].lower()
+def get_teams_mons_division(log_lines, user1, user2, sheets):
+    global users
+    global teams
+    global abbvs
+    global tr
+    
     index1 = -1
     index2 = -1
     
@@ -267,75 +214,6 @@ async def bracket_bo1(replay_link, msg, channel, log, sheets):
     
     team1 = ""
     team2 = ""
-    division = ""
-    
-    for i in range(len(users)):
-        if users[i] == user1:
-            index1 = i
-        elif users[i] == user2:
-            index2 = i
-        if index1>=0 and index2>=0:
-            break
-    
-    
-    if index1 == -1:
-        if index2 == -1:
-            team2 = "Showdown User " + user2
-        else:
-            team2 = teams[index2]
-        team1 = "Showdown User " + user1
-    elif index2 == -1:
-        team2 = "Showdown User " + user2
-        team1 = teams[index1]
-    else:
-        team1 = teams[index1]
-        team2 = teams[index2]
-        
-    if(winner==user1):
-        final_str = f"Botfficial Bracket BO1 Result\n{team1} def. {team2} {alive1}-{alive2}\n{replay_link}"
-    elif(winner==user2):
-        final_str = f"Botfficial Bracket BO1 Result\n{team2} def. {team1} {alive2}-{alive1}\n{replay_link}"
-    else:
-        final_str = f"ERROR - winner was {winner} but could not be identified as a player"
-    await channel.send(final_str)
-
-
-
-async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
-    global bo3_tracking
-    if bo3_tracking:
-        await bracket_bo3(replay_link, msg, channel, log, sheets)
-    else:
-        await bracket_bo1(replay_link, msg, channel, log, sheets)
-
-
-        
-    
-async def replayer_finished_draft(replay_link, channel, log, sheets):
-    log_lines = log.splitlines()
-    # print(log_lines)
-    user1 = log_lines[0][4:].lower().strip()
-    user2 = log_lines[1][4:].lower().strip()
-    winner = "unknown"
-    for line in log_lines:
-        line2 = line.lower().strip()
-        if line2.startswith("|win|"):
-            winner = line2[5:].lower()
-    index1 = -1
-    index2 = -1
-    
-    alive1 = 6
-    alive2 = 6
-    
-    for line in log_lines:
-        if "|faint|p1a" in line:
-            alive1-=1
-        if "|faint|p2a" in line:
-            alive2-=1
-    
-    team1 = ""
-    team2 = ""
-    division = ""
     
     for i in range(len(users)):
         if users[i] == user1:
@@ -376,6 +254,90 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
             if found1 and found2:
                 division = div
                 break
+    
+    return team1, team2, alive1, alive2, division
+
+
+async def bracket_bo3(replay_link, msg, channel, log, sheets):
+    global bo3s
+    won = False
+    score = 0
+    log_lines = log.splitlines()
+    # print(log_lines)
+    user1, user2, winner = get_users_winner(log_lines)
+    if user1 > user2:
+        temp = user1
+        user1 = user2
+        user2 = temp
+    if winner == user1:
+        score = 1
+    elif winner == user2:
+        score = -1
+    else:
+        await msg.channel.send("Could not find users for match, though replay is at\n" + replay_link)
+        return
+    if (user1, user2) in [(t[0], t[1]) for t in bo3s]:
+        for t in bo3s:
+            if datetime.now() - t[4] > timedelta(days=1):
+                bo3s.remove(t)
+                bo3s.append([user1, user2, [replay_link], score, datetime.now()])
+                break
+            if t[0]==user1 and t[1]==user2:
+                # print(datetime.now() - t[4])
+                t[2].append(replay_link)
+                t[3] += score
+                if abs(t[3])*len(t[2])>=3:
+                    won=True
+                    final_score = f"2-{len(t[2])-2}"
+                    replays_string = ""
+                    for replay in t[2]:
+                        replays_string+=f'\n{replay}'
+                    bo3s.remove(t)
+                break
+    else:
+        bo3s.append([user1, user2, [replay_link], score, datetime.now()])
+        
+    if won:
+        team1, team2, alive1, alive2, division = get_teams_mons_division(log_lines, user1, user2, sheets)
+        
+        if score > 0:
+            final_str = f"Botfficial Bracket BO3 Result\n{team1} def. {team2} {final_score}{replays_string}"
+        else:
+            final_str = f"Botfficial Bracket BO3 Result\n{team2} def. {team1} {final_score}{replays_string}"
+        await channel.send(final_str)
+
+async def bracket_bo1(replay_link, msg, channel, log, sheets):
+    log_lines = log.splitlines()
+    # print(log_lines)
+    user1, user2, winner = get_users_winner(log_lines)
+    team1, team2, alive1, alive2, division = get_teams_mons_division(log_lines, user1, user2, sheets)
+        
+    if(winner==user1):
+        final_str = f"Botfficial Bracket BO1 Result\n{team1} def. {team2} {alive1}-{alive2}\n{replay_link}"
+    elif(winner==user2):
+        final_str = f"Botfficial Bracket BO1 Result\n{team2} def. {team1} {alive2}-{alive1}\n{replay_link}"
+    else:
+        final_str = f"ERROR - winner was {winner} but could not be identified as a player"
+    await channel.send(final_str)
+
+
+
+async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
+    global bo3_tracking
+    if bo3_tracking:
+        await bracket_bo3(replay_link, msg, channel, log, sheets)
+    else:
+        await bracket_bo1(replay_link, msg, channel, log, sheets)
+
+
+        
+    
+async def replayer_finished_draft(replay_link, channel, log, sheets):
+    log_lines = log.splitlines()
+    # print(log_lines)
+    
+    user1, user2, winner = get_users_winner(log_lines)
+    team1, team2, alive1, alive2, division = get_teams_mons_division(log_lines, user1, user2, sheets)
                 
     if(winner==user1):
         final_str = f"Botfficial Match Result ({division})\n{team1} def. {team2} {alive1}-{alive2}\n{replay_link}"
@@ -384,6 +346,7 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
     else:
         final_str = f"ERROR - winner was {winner} but could not be identified as a player"
     await channel.send(final_str)
+
 
 if __name__ == "__main__":
     main()
