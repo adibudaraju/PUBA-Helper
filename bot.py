@@ -81,6 +81,8 @@ class ReplayClient(showdown.Client):
             if len(recents) > 20:
                 recents.pop(0)
                 
+            id = self.battle[7:]    
+            
             if not self.draft:
                 await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
             else:
