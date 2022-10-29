@@ -1,5 +1,7 @@
 from typing import final
+from xml.dom.pulldom import parseString
 import discord
+import signal
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
@@ -8,16 +10,33 @@ from threading import Thread
 import ast
 import pygsheets
 from datetime import datetime, timedelta
+import signal
+import time
+import sys
 
-bo3s = []
-bo3_tracking = None
+draft_tracking = True
+bracket_matches = []
+bracket_series = None
+bracket_needed_to_win = 0
+bracket_tracking = True
 tr = None
 users = None
 teams = None
 abbvs = None
 recents = []
+storage = None
+officer_role_id = None
+dev_id = None
 
+class GracefulKiller:
+  def __init__(self):
+    signal.signal(signal.SIGTERM, self.exit_gracefully)
+    self.kill_now = False
 
+  def exit_gracefully(self, *args):
+    closing_save()
+    self.kill_now = True
+    sys.exit()
 
 def showdown_format(in_str):
     return (''.join(ch for ch in in_str if ch.isalnum())).lower().strip()
@@ -28,6 +47,9 @@ def find_nth(haystack, needle, n):
         start = haystack.find(needle, start+len(needle))
         n -= 1
     return start
+
+
+
 
 class ReplayClient(showdown.Client):
     
@@ -61,7 +83,6 @@ class ReplayClient(showdown.Client):
         self.pre_str = pre_str
         self.draft = draft
         self.sheets=sheets
-    
     
     async def on_receive(self, room_id, inp_type, params):
         if inp_type == 'win':
@@ -99,8 +120,14 @@ def main():
     global teams
     global abbvs
     global tr
-    global bo3_tracking
+    global bracket_series
+    global storage
+    global bracket_tracking
+    global bracket_needed_to_win
+    global officer_role_id
+    global dev_id
     load_dotenv()
+    gk = GracefulKiller()
     botID = (os.getenv("BOT_ID"))
     gc = pygsheets.authorize(service_account_env_var="G_JSON")
     si = 11
@@ -117,14 +144,24 @@ def main():
     showdown_user = os.getenv("SHOWDOWN_USER")
     showdown_pass = os.getenv("SHOWDOWN_PASS")
     token = os.getenv("DISCORD_TOKEN")
-    bo3_tracking = os.getenv("BO3_TRACKING").strip().upper() == "T"
+    officer_role_id=ast.literal_eval(os.getenv("OFFICER_ID"))
+    dev_id=ast.literal_eval(os.getenv("DEV_ID"))
+    
+    storage = gc.open_by_url(os.getenv("STORAGE_URL")).worksheet_by_title('Storage')
+    # bracket_series = os.getenv("BO3_TRACKING").strip().upper() == "T"
+    draft_tracking = storage.get_value("A2").strip().upper() == "T"
+    bracket_tracking = storage.get_value("B2").strip().upper() == "T"
+    bracket_needed_to_win = int((str(storage.get_value("C2"))).strip())
+    bracket_series = bracket_needed_to_win > 1
+    # print(f"{bracket_series}   {bracket_tracking}   {bracket_needed_to_win}")
     
     intents = discord.Intents.default()
     intents.message_content = True
     client = discord.Client(intents=intents)
     bot = commands.Bot(command_prefix='.',intents=intents)
     
-    
+    def is_admin(person):
+        return person.id == dev_id or officer_role_id in [role.id for role in person.roles]
 
     @client.event
     async def on_ready():
@@ -133,31 +170,91 @@ def main():
 
     @client.event
     async def on_message(message):
+        global bracket_tracking
+        global draft_tracking
+        global bracket_needed_to_win
+        global bracket_series
+        if str(message.author.id) == botID:
+            return
         ch = message.channel
         content = message.content.strip()
         if content.lower().startswith("!pb ") and len(content)>4:
             content = content.lower()[4:]
-            
+            command = ""
+            param = ""
             if content == "help":
                 help_msg = "Hello! I'm the PUBA Helper bot, aimed at automating and aiding processes in the PUBA server."
                 help_msg += "\nI track all links posted in #match-live-links or #bracket-live-links and save the replays."
                 help_msg += "\nMore functionality hopefully coming soon!"
                 await message.author.send(help_msg)
+            elif content == "get-bracket-tracking":
+                if bracket_tracking:
+                    await message.reply("Bracket tracking is currently ON.")
+                else:
+                    await message.reply("Bracket tracking is currently OFF.")
+            elif content == "get-draft-tracking":
+                if draft_tracking:
+                    await message.reply("Draft tracking is currently ON.")
+                else:
+                    await message.reply("Draft tracking is currently OFF.")
+            elif content == "get-bracket-wins-needed":
+                await message.reply(f"Bracket is first to {bracket_needed_to_win} wins.")
+            elif len(content.split()) > 1:
+                command = content.split()[0].lower().strip()
+                param = content.split()[1].lower().strip()
+            else:
+                return
             
+            if command == "set-bracket-tracking":
+                if not is_admin(message.author):
+                    await message.reply("Sorry, only admins can use this command!")
+                elif param == "off":
+                    bracket_tracking = False
+                    await message.reply("Bracket tracking has been set to OFF.")
+                elif param == "on":
+                    bracket_tracking = True
+                    await message.reply("Bracket tracking has been set to ON.")
+                else:
+                    await message.reply("Sorry, the only valid options for this command are 'off' and 'on'.")
+                
+            elif command == "set-draft-tracking":
+                if not is_admin(message.author):
+                    await message.reply("Sorry, only admins can use this command!")
+                elif param == "off":
+                    draft_tracking = False
+                    await message.reply("Draft tracking has been set to OFF.")
+                elif param == "on":
+                    draft_tracking = True
+                    await message.reply("Draft tracking has been set to ON.")
+                else:
+                    await message.reply("Sorry, the only valid options for this command are 'off' and 'on'.")
+            
+            elif command == "set-bracket-wins-needed":
+                if not is_admin(message.author):
+                    await message.reply("Sorry, only admins can use this command!")
+                elif param.isdigit() and int(param) > 0 and int(param) < 10:
+                    bracket_needed_to_win = int(param)
+                    bracket_series = bracket_needed_to_win > 1
+                    await message.reply(f"Bracket is now first to {param} wins.")
+                else:
+                    await message.reply("Sorry, the parameter for this command needs to be a reasonably sized positive number.")
             
             return
         
-        if str(message.author.id) == botID or str(ch.id) not in channelIDs:
+        if str(ch.id) not in channelIDs:
             return
         
         draft = False
         final_channel = ch
-        if ch.id in draft_dict.keys():
+        if draft_tracking and ch.id in draft_dict.keys():
             final_channel = client.get_channel(draft_dict[ch.id])
             draft = True
         
-        elif ch.id in bracket_dict.keys():
+        elif bracket_tracking and ch.id in bracket_dict.keys():
             final_channel = client.get_channel(bracket_dict[ch.id])
+        
+        else:
+            return
         
         if "play.pokemonshowdown.com" in content.lower() and "replay." not in content.lower():
             new_cont = content.split(" ")
@@ -260,8 +357,9 @@ def get_teams_mons_division(log_lines, user1, user2, sheets):
     return team1, team2, alive1, alive2, division
 
 
-async def bracket_bo3(replay_link, msg, channel, log, sheets):
-    global bo3s
+async def bracket_series_finished(replay_link, msg, channel, log, sheets):
+    global bracket_matches
+    global bracket_needed_to_win
     won = False
     score = 0
     log_lines = log.splitlines()
@@ -278,34 +376,36 @@ async def bracket_bo3(replay_link, msg, channel, log, sheets):
     else:
         await msg.channel.send("Could not find users for match, though replay is at\n" + replay_link)
         return
-    if (user1, user2) in [(t[0], t[1]) for t in bo3s]:
-        for t in bo3s:
+    if (user1, user2) in [(t[0], t[1]) for t in bracket_matches]:
+        for t in bracket_matches:
             if datetime.now() - t[4] > timedelta(days=1):
-                bo3s.remove(t)
-                bo3s.append([user1, user2, [replay_link], score, datetime.now()])
+                bracket_matches.remove(t)
+                bracket_matches.append([user1, user2, [replay_link], score, datetime.now()])
                 break
             if t[0]==user1 and t[1]==user2:
                 # print(datetime.now() - t[4])
                 t[2].append(replay_link)
                 t[3] += score
-                if abs(t[3])*len(t[2])>=3:
+                winner_score = (abs(t[3])+len(t[2]))/2
+                if winner_score>=bracket_needed_to_win:
                     won=True
-                    final_score = f"2-{len(t[2])-2}"
+                    loser_score = len(t[2]) - winner_score
+                    final_score = f"{int(winner_score)}-{int(loser_score)}"
                     replays_string = ""
                     for replay in t[2]:
                         replays_string+=f'\n{replay}'
-                    bo3s.remove(t)
+                    bracket_matches.remove(t)
                 break
     else:
-        bo3s.append([user1, user2, [replay_link], score, datetime.now()])
+        bracket_matches.append([user1, user2, [replay_link], score, datetime.now()])
         
     if won:
         team1, team2, alive1, alive2, division = get_teams_mons_division(log_lines, user1, user2, sheets)
         
         if score > 0:
-            final_str = f"Botfficial Bracket BO3 Result\n{team1} def. {team2} {final_score}{replays_string}"
+            final_str = f"Botfficial Bracket BO{2*bracket_needed_to_win-1} Result\n{team1} def. {team2} {final_score}{replays_string}"
         else:
-            final_str = f"Botfficial Bracket BO3 Result\n{team2} def. {team1} {final_score}{replays_string}"
+            final_str = f"Botfficial Bracket BO{2*bracket_needed_to_win-1} Result\n{team2} def. {team1} {final_score}{replays_string}"
         await channel.send(final_str)
 
 async def bracket_bo1(replay_link, msg, channel, log, sheets):
@@ -325,9 +425,9 @@ async def bracket_bo1(replay_link, msg, channel, log, sheets):
 
 
 async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
-    global bo3_tracking
-    if bo3_tracking:
-        await bracket_bo3(replay_link, msg, channel, log, sheets)
+    global bracket_series
+    if bracket_series:
+        await bracket_series_finished(replay_link, msg, channel, log, sheets)
     else:
         await bracket_bo1(replay_link, msg, channel, log, sheets)
 
@@ -348,6 +448,13 @@ async def replayer_finished_draft(replay_link, channel, log, sheets):
     else:
         final_str = f"ERROR - winner was {winner} but could not be identified as a player"
     await channel.send(final_str)
+
+
+def closing_save():
+    storage.update_value('A2', str(draft_tracking)[0])
+    storage.update_value('B2', str(bracket_tracking)[0])
+    storage.update_value('C2', str(bracket_needed_to_win))
+    
 
 
 if __name__ == "__main__":
