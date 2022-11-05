@@ -206,7 +206,7 @@ def main():
                 return
             
             if command == "set-bracket-tracking":
-                if not is_admin(message.author):
+                if False:
                     await message.reply("Sorry, only admins can use this command!")
                 elif param == "off":
                     bracket_tracking = False
@@ -218,7 +218,7 @@ def main():
                     await message.reply("Sorry, the only valid options for this command are 'off' and 'on'.")
                 
             elif command == "set-draft-tracking":
-                if not is_admin(message.author):
+                if False:
                     await message.reply("Sorry, only admins can use this command!")
                 elif param == "off":
                     draft_tracking = False
@@ -230,7 +230,7 @@ def main():
                     await message.reply("Sorry, the only valid options for this command are 'off' and 'on'.")
             
             elif command == "set-bracket-wins-needed":
-                if not is_admin(message.author):
+                if False:
                     await message.reply("Sorry, only admins can use this command!")
                 elif param.isdigit() and int(param) > 0 and int(param) < 10:
                     bracket_needed_to_win = int(param)
