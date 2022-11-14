@@ -250,7 +250,7 @@ def main():
         final_channel = ch
         if draft_tracking and ch.id in draft_dict.keys():
             if content.lower().startswith("unof") or ("unof" in content.lower() and "ial" in content.lower()):
-                final_channel = unofficial_draft_result 
+                final_channel = client.get_channel(unofficial_draft_result) 
             else:
                 final_channel = client.get_channel(draft_dict[ch.id])
             draft = True
