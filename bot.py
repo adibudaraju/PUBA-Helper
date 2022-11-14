@@ -122,6 +122,7 @@ def main():
     global tr
     global bracket_series
     global storage
+    global draft_tracking
     global bracket_tracking
     global bracket_needed_to_win
     global officer_role_id
@@ -141,6 +142,7 @@ def main():
     channelIDs = [a for a in os.getenv("CHANNEL_IDS").split(" ")]
     draft_dict=ast.literal_eval(os.getenv("DRAFT_LINKS_IDS"))
     bracket_dict=ast.literal_eval(os.getenv("BRACKET_LINKS_IDS"))
+    unofficial_draft_result=ast.literal_eval(os.getenv("UNOFFICIAL_DRAFT_RESULTS_ID"))
     showdown_user = os.getenv("SHOWDOWN_USER")
     showdown_pass = os.getenv("SHOWDOWN_PASS")
     token = os.getenv("DISCORD_TOKEN")
@@ -247,7 +249,10 @@ def main():
         draft = False
         final_channel = ch
         if draft_tracking and ch.id in draft_dict.keys():
-            final_channel = client.get_channel(draft_dict[ch.id])
+            if content.lower.startswith("unof") or ("unof" in content.lower() and "ial" in content.lower()):
+                final_channel = unofficial_draft_result 
+            else:
+                final_channel = client.get_channel(draft_dict[ch.id])
             draft = True
         
         elif bracket_tracking and ch.id in bracket_dict.keys():
@@ -256,11 +261,8 @@ def main():
         else:
             return
         
-        new_cont = content.split(" ")
-        if len(new_cont) < 1:
-            return
         
-        if "play.pokemonshowdown.com" in new_cont[0].lower() and "replay." not in content.lower():
+        if "play.pokemonshowdown.com" in content.lower() and "replay." not in content.lower():
             new_cont = content.split(" ")
             for c in new_cont:
                 if "play.pokemonshowdown.com" in c.lower():
@@ -270,7 +272,7 @@ def main():
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
             client2.start(autologin=True)
-        elif "sports.psim.us" in new_cont[0].lower() and "replay." not in content.lower():
+        elif "sports.psim.us" in content.lower() and "replay." not in content.lower():
             new_cont = content.split(" ")
             for c in new_cont:
                 if "sports.psim.us" in c.lower():
