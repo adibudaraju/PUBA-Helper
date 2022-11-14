@@ -256,7 +256,11 @@ def main():
         else:
             return
         
-        if "play.pokemonshowdown.com" in content.lower() and "replay." not in content.lower():
+        new_cont = content.split(" ")
+        if len(new_cont) < 1:
+            return
+        
+        if "play.pokemonshowdown.com" in new_cont[0].lower() and "replay." not in content.lower():
             new_cont = content.split(" ")
             for c in new_cont:
                 if "play.pokemonshowdown.com" in c.lower():
@@ -266,7 +270,7 @@ def main():
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
             client2.start(autologin=True)
-        elif "sports.psim.us" in content.lower():
+        elif "sports.psim.us" in new_cont[0].lower() and "replay." not in content.lower():
             new_cont = content.split(" ")
             for c in new_cont:
                 if "sports.psim.us" in c.lower():
