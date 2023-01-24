@@ -280,9 +280,18 @@ def main():
                     
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/sports-", server_id="sports", draft=draft, sheets=sheets)
-            client2.start(autologin=True)        
+            client2.start(autologin=True) 
+        elif "dl.psim.us" in content.lower() and "replay." not in content.lower():
+            new_cont = content.split(" ")
+            for c in new_cont:
+                if "dl.psim.us" in c.lower():
+                    battle_id = c[c.index("battle-"):]
+                    
+            client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
+                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/dl-", server_id="dl", draft=draft, sheets=sheets)
+            client2.start(autologin=True) 
     client.run(token)
-    
+
     
 def get_users_winner(log_lines):
     #print(log_lines)
