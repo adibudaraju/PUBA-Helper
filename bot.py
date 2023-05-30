@@ -254,10 +254,10 @@ def main():
                     await message.reply("Sorry, only admins can use this command!")
                 elif param == "off":
                     draft_bo3 = False
-                    await message.reply("Draft tracking has been set to OFF.")
+                    await message.reply("Draft BO3 has been set to OFF.")
                 elif param == "on":
                     draft_bo3 = True
-                    await message.reply("Draft tracking has been set to ON.")
+                    await message.reply("Draft BO3 has been set to ON.")
                 else:
                     await message.reply("Sorry, the only valid options for this command are 'off' and 'on'.")
             return
