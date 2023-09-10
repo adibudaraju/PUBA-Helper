@@ -93,6 +93,7 @@ class ReplayClient(showdown.Client):
     async def on_query_response(self, query_type, response):
         global recents
         if(query_type == "savereplay"):
+            print("I'm saving the replay!")
             # print("responded")
             #print(response['log'])
             id = response['id']
@@ -178,6 +179,7 @@ def main():
     async def on_message(message):
         global bracket_tracking
         global draft_tracking
+        global draft_bo3
         global bracket_needed_to_win
         global bracket_series
         if str(message.author.id) == botID:
