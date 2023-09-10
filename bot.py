@@ -71,19 +71,23 @@ class ReplayClient(showdown.Client):
         draft,
         sheets,
     ):
-        super().__init__(name=name, 
-                         password=password,
-                         loop=loop,
-                         max_room_logs=max_room_logs,
-                         server_id=server_id,
-                         server_host=server_host,
-                         strict_exceptions=strict_exceptions)
-        self.battle = battle
-        self.channel = channel
-        self.message = message
-        self.pre_str = pre_str
-        self.draft = draft
-        self.sheets=sheets
+        try:
+            super().__init__(name=name, 
+                            password=password,
+                            loop=loop,
+                            max_room_logs=max_room_logs,
+                            server_id=server_id,
+                            server_host=server_host,
+                            strict_exceptions=strict_exceptions)
+            self.battle = battle
+            self.channel = channel
+            self.message = message
+            self.pre_str = pre_str
+            self.draft = draft
+            self.sheets=sheets
+            print("initialized")
+        except:
+            print(sys.exc_info())
     
     async def on_receive(self, room_id, inp_type, params):
         if inp_type == 'win':
@@ -287,13 +291,10 @@ def main():
             for c in new_cont:
                 if "play.pokemonshowdown.com" in c.lower():
                     battle_id = c[c.index("battle-"):]
-                    break
-            print("Logging in!")
+                    bracket_tracking
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
-                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
-            print("Created client")            
+                        channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)          
             client2.start(autologin=True)
-            print("Started client")
         elif "sports.psim.us" in content.lower() and "replay." not in content.lower():
             new_cont = content.split(" ")
             for c in new_cont:
