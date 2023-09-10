@@ -93,7 +93,6 @@ class ReplayClient(showdown.Client):
     async def on_query_response(self, query_type, response):
         global recents
         if(query_type == "savereplay"):
-            print("I'm saving the replay!")
             # print("responded")
             #print(response['log'])
             id = response['id']
@@ -289,10 +288,12 @@ def main():
                 if "play.pokemonshowdown.com" in c.lower():
                     battle_id = c[c.index("battle-"):]
                     break
-            
+            print("Logging in!")
             client2 = ReplayClient(name=showdown_user, password=showdown_pass, battle=battle_id,
                         channel=final_channel, message=message, pre_str="https://replay.pokemonshowdown.com/", draft=draft, sheets=sheets)
+            print("Created client")            
             client2.start(autologin=True)
+            print("Started client")
         elif "sports.psim.us" in content.lower() and "replay." not in content.lower():
             new_cont = content.split(" ")
             for c in new_cont:
