@@ -135,7 +135,7 @@ def main():
     botID = (os.getenv("BOT_ID"))
     gc = pygsheets.authorize(service_account_env_var="G_JSON")
     si = 11
-    sheets = {"Mackey": gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheets()[si:], "Ross-Ade": gc.open_by_url(os.getenv("ROSSADE_SHEET")).worksheets()[si:], "Holloway": gc.open_by_url(os.getenv("HOLLOWAY_SHEET")).worksheets()[si:]}
+    sheets = {"Mackey": gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheets()[si:], "Ross-Ade": gc.open_by_url(os.getenv("ROSSADE_SHEET")).worksheets()[si:], "Holloway": gc.open_by_url(os.getenv("HOLLOWAY_SHEET")).worksheets()[si:], "Folk": gc.open_by_url(os.getenv("FOLK_SHEET")).worksheets()[si:]}
     tr = gc.open_by_url(os.getenv("MACKEY_SHEET")).worksheet_by_title('Team Reference')
     users = tr.get_col(7)
     teams = tr.get_col(2)
