@@ -71,23 +71,19 @@ class ReplayClient(showdown.Client):
         draft,
         sheets,
     ):
-        try:
-            super().__init__(name=name, 
-                            password=password,
-                            loop=loop,
-                            max_room_logs=max_room_logs,
-                            server_id=server_id,
-                            server_host=server_host,
-                            strict_exceptions=strict_exceptions)
-            self.battle = battle
-            self.channel = channel
-            self.message = message
-            self.pre_str = pre_str
-            self.draft = draft
-            self.sheets=sheets
-            print("initialized")
-        except:
-            print(sys.exc_info())
+        super().__init__(name=name, 
+                        password=password,
+                        loop=loop,
+                        max_room_logs=max_room_logs,
+                        server_id=server_id,
+                        server_host=server_host,
+                        strict_exceptions=strict_exceptions)
+        self.battle = battle
+        self.channel = channel
+        self.message = message
+        self.pre_str = pre_str
+        self.draft = draft
+        self.sheets=sheets
     
     async def on_receive(self, room_id, inp_type, params):
         if inp_type == 'win':
@@ -110,8 +106,8 @@ class ReplayClient(showdown.Client):
             id = self.battle[7:]    
             if not self.draft:
                 await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
-            elif draft_bo3:
-                await draft_bo3_finished(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
+            # elif draft_bo3: #CHANGE BACK TO ADD DRAFT BO3 SUPPORT
+            #     await draft_bo3_finished(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
             else:
                 await replayer_finished_draft(self.pre_str + id, self.channel, response['log'], self.sheets)
             await self.leave(self.battle)
