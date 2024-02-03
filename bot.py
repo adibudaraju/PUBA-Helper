@@ -1,5 +1,3 @@
-from typing import final
-from xml.dom.pulldom import parseString
 import discord
 import signal
 from discord.ext import commands
@@ -86,14 +84,37 @@ class ReplayClient(showdown.Client):
         self.sheets=sheets
     
     async def on_receive(self, room_id, inp_type, params):
+        global recents
         if inp_type == 'win':
-            # print("ended")
+            print("ended")
+            response = dict()
+            response['log'] = '\n'.join(self.rooms[room_id].logs)
+            id = room_id
+            if id in recents:
+                return
+            
+            recents.append(id)
+            if len(recents) > 20:
+                recents.pop(0)
+                
+            id = self.battle[7:]    
+            if not self.draft:
+                await replayer_finished_bracket(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
+            # elif draft_bo3: #CHANGE BACK TO ADD DRAFT BO3 SUPPORT
+            #     await draft_bo3_finished(self.pre_str + id, self.message, self.channel, response['log'], self.sheets)
+            else:
+                await replayer_finished_draft(self.pre_str + id, self.channel, response['log'], self.sheets)
+            
             await self.save_replay(room_id)
+            await self.leave(self.battle)
     
     async def on_query_response(self, query_type, response):
         global recents
         if(query_type == "savereplay"):
-            # print("responded")
+            print("shouldn't be here!!!!!! showdown stopped working")
+            return
+
+            print("responded")
             #print(response['log'])
             id = response['id']
             if id in recents:
@@ -162,7 +183,7 @@ def main():
     # print(f"{bracket_series}   {bracket_tracking}   {bracket_needed_to_win}")
     
     intents = discord.Intents.default()
-    intents.message_content = True
+    intents.messages = True
     client = discord.Client(intents=intents)
     bot = commands.Bot(command_prefix='.',intents=intents)
     
@@ -519,6 +540,7 @@ async def replayer_finished_bracket(replay_link, msg, channel, log, sheets):
         
     
 async def replayer_finished_draft(replay_link, channel, log, sheets):
+    print(f"Got replay! {replay_link}")
     log_lines = log.splitlines()
     # print(log_lines)
     
